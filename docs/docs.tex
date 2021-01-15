@@ -1,0 +1,116 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+\PassOptionsToPackage{dvipsnames,svgnames*,x11names*}{xcolor}
+%
+\documentclass[
+]{article}
+\usepackage{lmodern}
+\usepackage{amssymb,amsmath}
+\usepackage{ifxetex,ifluatex}
+\ifnum 0\ifxetex 1\fi\ifluatex 1\fi=0 % if pdftex
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math}
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{xcolor}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\IfFileExists{bookmark.sty}{\usepackage{bookmark}}{\usepackage{hyperref}}
+\hypersetup{
+  pdftitle={Measure Theory},
+  pdfauthor={Kexing Ying},
+  colorlinks=true,
+  linkcolor=Maroon,
+  filecolor=Maroon,
+  citecolor=Blue,
+  urlcolor=red,
+  pdfcreator={LaTeX via pandoc}}
+\urlstyle{same} % disable monospaced font for URLs
+\usepackage[margin = 1.5in]{geometry}
+\usepackage{graphicx}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+% Set default figure placement to htbp
+\makeatletter
+\def\fps@figure{htbp}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{5}
+\usepackage{tikz}
+\usepackage{amsthm}
+\usepackage{mathtools}
+\usepackage{lipsum}
+\usepackage[ruled,vlined]{algorithm2e}
+\theoremstyle{definition}
+\newtheorem{theorem}{Theorem}
+\newtheorem{prop}{Proposition}
+\newtheorem{corollary}{Corollary}[theorem]
+\newtheorem*{remark}{Remark}
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{lemma}{Lemma}[section]
+\newcommand{\diag}{\mathop{\mathrm{diag}}}
+\newcommand{\Arg}{\mathop{\mathrm{Arg}}}
+\newcommand{\hess}{\mathop{\mathrm{Hess}}}
+
+\title{The Spectral Theorem for Sesquilinear Forms}
+\author{Kexing Ying}
+\date{January 14, 2021}
+
+\begin{document}
+\maketitle
+
+\begin{definition}[Sesquilinear Form]
+  Let \(M\) be a module over the ring \(R\) and let \(\sigma\) be an 
+  \(R\)-antiautomorphism (or equivalently, an isomorphism 
+  \(\sigma : R \simeq R^{\text{op}}\)), then the function 
+  \(\phi : V \times V \to R\) is a \(\sigma\)-sesquilinear form if and only if 
+  for all \(x, y, z \in M\), \(\alpha \in R\), 
+  \begin{itemize}
+    \item \(\phi(x + z, y) = \phi(x, y) + \phi(z, y)\);
+    \item \(\phi(x, y + z) = \phi(x, y) + \phi(y, z)\);
+    \item \(\phi(\alpha x, y) = \alpha \phi(x, y)\);
+    \item \(\phi(x, \alpha y) = \sigma(\alpha) \phi(x, y)\).
+  \end{itemize}
+\end{definition}
+
+A typical example of a sesquilinear form are the inner products of any real or 
+complex vector spaces.
+
+\begin{definition}[Adjoint Maps]
+  Let \(\phi_1, \phi_2\) be sesquilinear forms on the modules \(M, N\) respectively, 
+  and let \(f : N \to M\), \(g : M \to N\) be linear maps. Then we say \(f\) 
+  and \(g\) are adjoints if and only if for all \(x \in M\), \(y \in N\), 
+  \[\phi_1(x, f(x)) = \phi(g(x), y).\]
+\end{definition}
+
+
+\end{document}
