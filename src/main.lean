@@ -1,6 +1,8 @@
 import linear_algebra.bilinear_form
 import linear_algebra.dual
 import linear_algebra.dimension
+import linear_algebra.direct_sum_module
+import algebra.invertible
 
 open_locale classical
 
@@ -23,12 +25,13 @@ def ortho (B : bilin_form R M) (N : submodule R M) : submodule R M :=
 
 end bilin_form
 
-noncomputable def std_basis {R : Type v} [ring R] {n : Type w} [fintype n] 
+/-- `std_basis` is the standard basis for vectors. -/
+noncomputable def std_basis {R : Type v} [ring R] {n : Type w} 
   (i : n) : n → R := λ j, if j = i then 1 else 0
 
 namespace std_basis 
 
-variables {R : Type v} [ring R] {n : Type w} [fintype n] 
+variables {R : Type v} [ring R] {n : Type w} 
 
 lemma eq_update (m : n) : std_basis m = function.update 0 m (1 : R) := 
 by { ext, rw function.update_apply, refl }
@@ -43,13 +46,13 @@ by { rw linear_map.std_basis_apply, exact eq_update m }
 @[simp] lemma eq_eq_one {i j : n} (h : i = j) : std_basis i j = (1 : R) := 
   if_pos h.symm
 
-lemma is_basis : @is_basis n R (n → R) std_basis _ _ _ := 
+lemma is_basis [fintype n] : @is_basis n R (n → R) std_basis _ _ _ := 
 begin
   convert pi.is_basis_fun R n,
   ext1 m, exact linear_map.eq_std_basis m, 
 end
 
-lemma dot_product_eq_val (v : n → R) (i : n) :
+lemma dot_product_eq_val (v : n → R) (i : n) [fintype n]:
   v i = matrix.dot_product v (std_basis i) := 
 begin
   rw [matrix.dot_product, finset.sum_eq_single i, eq_eq_one rfl, mul_one],
@@ -68,8 +71,10 @@ variables {M : Type u} {R : Type v}
 def nondegenerate [add_comm_group M] [ring R] [module R M] (B : bilin_form R M) := 
   ∀ m : M, (∀ n : M, B m n = 0) → m = 0
 
-variables {n : Type w} [fintype n] [decidable_eq n] 
+variables {n : Type w} [fintype n]
 variables [add_comm_group M] [comm_ring R] [module R M]
+
+section matrix
 
 lemma matrix.to_lin'_apply' (A : matrix n n R) (v w : n → R) : 
   (matrix.to_bilin' A) v w = matrix.dot_product v (A.mul_vec w) :=
@@ -98,8 +103,9 @@ begin
   rw [finset.sum_comm]
 end
 
--- ↓ Lemma not true for nonsymmetric bilinear forms
-lemma matrix.invertible_iff_nondegenerate (A : matrix n n R) 
+/-- Let `A` be a symmetric matrix. Then `A` has trivial kernel, that is it is 
+  invertible if and only if the induced bilinear form of `A` is nondegenerate. -/
+theorem matrix.invertible_iff_nondegenerate (A : matrix n n R) 
   (temp : sym_bilin_form.is_sym A.to_bilin') : 
   A.to_bilin'.nondegenerate ↔ A.to_lin'.ker = ⊥ := 
 begin
@@ -115,20 +121,47 @@ begin
     rwa [temp, matrix.to_lin'_apply', matrix.dot_product_comm] at this }
 end
 
+-- TODO:
 -- We would like a necessary and sufficent condition on which A.to_bilin' is 
--- symmetric
+-- symmetric so the condition is a prop on matrices not the induced bilinear 
+-- product.
 
+end matrix
 
--- Okay, we prove the following:
-/- Let M be a finite dimensional module over the (commutative?) ring R with the 
+/-- Let `B` be a symmetric, nondegenerate bilinear form on a nontrivial module 
+  `M` over the ring `R` with invertible `2`. Then, there exists some `x : M` 
+  such that `B x x ≠ 0`. -/
+lemma exists_bilin_form_self_neq_zero {B : bilin_form R M} 
+  (hB₁ : B.nondegenerate) (hB₂ : sym_bilin_form.is_sym B) 
+  (hK : ∃ x : M, x ≠ 0) [htwo : invertible (2 : R)] : ∃ x, B x x ≠ 0 :=
+begin
+  by_contra, push_neg at h,
+  have : ∀ u v : M, 2 * B u v = 0,
+  { intros u v,
+    rw [show 2 * B u v = B u u + B v u + B u v + B v v, 
+          by rw [h u, h v, hB₂ v u]; ring, 
+        show B u u + B v u + B u v + B v v = B (u + v) (u + v), 
+          by simp [← add_assoc], h _] },
+  have hcon : ∀ u v : M, B u v = 0,
+  { intros u v,
+    rw [show 0 = htwo.inv_of * (2 * B u v), by rw this; ring], simp [← mul_assoc] },
+  exact let ⟨v, hv⟩ := hK in hv $ hB₁ v (hcon v),
+end
+
+-- lemma foo {B : bilin_form R M} 
+--   (hB₁ : B.nondegenerate) (hB₂ : sym_bilin_form.is_sym B) 
+--   (x : M) (hx : B x x ≠ 0) : let W := submodule.span R ({x} : set M) in 
+--   W ⨁ B.ortho W
+
+/- Let V be a finite dimensional vector space over the field K with the 
   nondegenerate bilinear form B. Then for all m ∈ M, f_m : M → R : n ↦ B m n is 
   a linear functional in the dual space.
 
   Furthermore, the map, φ : M → M* : m ↦ f_m is an isomorphism.
-
-  pf. Second part.
 -/
 
+/-- Given a bilinear form `B`, `to_dual_aux` maps elements `m` of the module `M`
+  to the functional `λ x, B m x` in the dual space. -/
 def to_dual_aux (B : bilin_form R M) (m : M) : module.dual R M := 
 { to_fun := λ n, B m n,
   map_add' := add_right m,
@@ -137,17 +170,21 @@ def to_dual_aux (B : bilin_form R M) (m : M) : module.dual R M :=
 @[simp] lemma to_dual_aux_def {B : bilin_form R M} {m n : M} : 
   B.to_dual_aux m n = B m n := rfl
 
+/-- Given a bilinear form `B` on the modual `M`, `to_dual' B` is the linear map 
+  from `M` to its dual such that `to_dual B m` is the functional `λ x, B m x`. -/
 def to_dual' (B : bilin_form R M) : M →ₗ[R] module.dual R M := 
 { to_fun := λ m, to_dual_aux B m,
   map_add' := by { intros, ext, simp },
   map_smul' := by { intros, ext, simp } }
 
 variables {V : Type u} {K : Type v} 
-variables [field K] [add_comm_group V] [vector_space K V] [finite_dimensional K V]
+variables [field K] [add_comm_group V] [vector_space K V] 
  
 lemma to_dual'_injective (B : bilin_form R M) (hB : B.nondegenerate) : 
   function.injective (to_dual' B) :=
 B.to_dual'.to_add_monoid_hom.injective_iff.2 (λ a ha, hB _ (linear_map.congr_fun ha))
+
+section finite_dimensional
 
 instance [H : finite_dimensional K V] : finite_dimensional K (module.dual K V) := 
 begin
@@ -156,6 +193,8 @@ begin
   haveI := classical.choice hB.2,
   exact is_basis.to_dual_equiv _ hB.1
 end
+
+variable [finite_dimensional K V] 
 
 -- In order to show that `to_dual` is a surjective map we used the fact that 
 -- the dimensions of a vector space equal to the dimensions of its dual.
@@ -172,10 +211,13 @@ begin
   exact is_basis.to_dual_equiv _ hB.1
 end
 
+/-- To dual is the `linear_equiv` with the underlying linear map `to_dual'`. -/
 noncomputable def to_dual (B : bilin_form K V) (hB : B.nondegenerate) : 
   V ≃ₗ[K] module.dual K V := 
 { map_smul' := B.to_dual'.map_smul',
   .. add_equiv.of_bijective B.to_dual'.to_add_monoid_hom (to_dual'_bijective B hB) }
+
+end finite_dimensional
 
 end bilin_form
 
