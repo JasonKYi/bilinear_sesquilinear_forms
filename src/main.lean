@@ -148,11 +148,6 @@ begin
   exact let ⟨v, hv⟩ := hK in hv $ hB₁ v (hcon v),
 end
 
--- lemma foo {B : bilin_form R M} 
---   (hB₁ : B.nondegenerate) (hB₂ : sym_bilin_form.is_sym B) 
---   (x : M) (hx : B x x ≠ 0) : let W := submodule.span R ({x} : set M) in 
---   W ⨁ B.ortho W
-
 /- Let V be a finite dimensional vector space over the field K with the 
   nondegenerate bilinear form B. Then for all m ∈ M, f_m : M → R : n ↦ B m n is 
   a linear functional in the dual space.
@@ -216,6 +211,39 @@ noncomputable def to_dual (B : bilin_form K V) (hB : B.nondegenerate) :
   V ≃ₗ[K] module.dual K V := 
 { map_smul' := B.to_dual'.map_smul',
   .. add_equiv.of_bijective B.to_dual'.to_add_monoid_hom (to_dual'_bijective B hB) }
+
+-- ↓ This lemma only applies in fields as we require `a * b = 0 → a = 0 ∨ b = 0`
+lemma span_inf_ortho_eq_bot {B : bilin_form K V} (hB₁ : B.nondegenerate) 
+  (hB₂ : sym_bilin_form.is_sym B) {x : V} (hx : B x x ≠ 0) : 
+  submodule.span K ({x} : set V) ⊓ 
+    B.ortho (submodule.span K ({x} : set V)) = ⊥ := 
+begin
+  rw ← finset.coe_singleton,
+  refine eq_bot_iff.2 (λ y h, _),
+  rcases mem_span_finset.1 h.1 with ⟨μ, rfl⟩,
+  have := h.2 x _,
+  { rw finset.sum_singleton at this ⊢,
+    suffices hμzero : μ x = 0,
+    { rw [hμzero, zero_smul, submodule.mem_bot] },
+    change B (μ x • x) x = 0 at this, rw [smul_left] at this,
+    exact or.elim (zero_eq_mul.mp this.symm) id (λ hfalse, false.elim $ hx hfalse) },
+  { rw submodule.mem_span; exact λ _ hp, hp $ finset.mem_singleton_self _ }
+end
+
+-- ↓ This lemma only applies in field since we use the inverse
+lemma span_sup_ortho_eq_top {B : bilin_form K V} (hB₁ : B.nondegenerate) 
+  (hB₂ : sym_bilin_form.is_sym B) {x : V} (hx : B x x ≠ 0) : 
+  submodule.span K ({x} : set V) ⊔ 
+    B.ortho (submodule.span K ({x} : set V)) = ⊤ := 
+begin
+  refine eq_top_iff.2 (λ y _, _), rw submodule.mem_sup,
+  refine ⟨(B x y * (B x x)⁻¹) • x, _, y - (B x y * (B x x)⁻¹) • x, _, _⟩,
+  { exact submodule.mem_span_singleton.2 ⟨(B x y * (B x x)⁻¹), rfl⟩ },
+  { intros z hz,
+    rcases submodule.mem_span_singleton.1 hz with ⟨μ, rfl⟩,
+    simp [is_ortho, mul_assoc, inv_mul_cancel hx, hB₂ x] },
+  { simp },
+end
 
 end finite_dimensional
 
