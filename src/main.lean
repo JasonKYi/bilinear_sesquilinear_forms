@@ -1,8 +1,6 @@
 import linear_algebra.bilinear_form
-import linear_algebra.dual
-import linear_algebra.dimension
-import linear_algebra.direct_sum_module
 import algebra.invertible
+-- import linear_algebra.direct_sum_module
 
 open_locale classical
 
@@ -22,6 +20,26 @@ def ortho (B : bilin_form R M) (N : submodule R M) : submodule R M :=
         show B y n = 0, by exact hy n hn, zero_add],
   smul_mem' := λ c x hx n hn, 
     by rw [is_ortho, smul_left, show B x n = 0, by exact hx n hn, mul_zero] }
+
+/-- A set of vectors `v` is orthogonal with respect to some bilinear form `B` if 
+  and only if for all `i ≠ j`, `B (v i) (v j) = 0`. -/
+def is_ortho' {n : Type w} (B : bilin_form R M) (v : n → M) : Prop :=
+  ∀ i j : n, i ≠ j → B (v j) (v i) = 0
+
+/-- The restriction of a bilinear form on a submodule. -/
+def restrict (B : bilin_form R M) (W : submodule R M) : bilin_form R W := 
+{ bilin := λ a b, B a.1 b.1,
+  bilin_add_left := by simp,
+  bilin_smul_left := by simp,
+  bilin_add_right := by simp,
+  bilin_smul_right := by simp }.
+
+@[simp] lemma restric_def (B : bilin_form R M) (W : submodule R M) (x y : W) : 
+  B.restrict W x y = B x.1 y.1 := rfl
+
+lemma restrict_sym (B : bilin_form R M) (hB : sym_bilin_form.is_sym B) 
+  (W : submodule R M) : sym_bilin_form.is_sym $ B.restrict W :=
+λ x y, hB x.1 y.1
 
 end bilin_form
 
@@ -131,9 +149,9 @@ end matrix
 /-- Let `B` be a symmetric, nondegenerate bilinear form on a nontrivial module 
   `M` over the ring `R` with invertible `2`. Then, there exists some `x : M` 
   such that `B x x ≠ 0`. -/
-lemma exists_bilin_form_self_neq_zero {B : bilin_form R M} 
-  (hB₁ : B.nondegenerate) (hB₂ : sym_bilin_form.is_sym B) 
-  (hK : ∃ x : M, x ≠ 0) [htwo : invertible (2 : R)] : ∃ x, B x x ≠ 0 :=
+lemma exists_bilin_form_self_neq_zero [htwo : invertible (2 : R)] 
+  {B : bilin_form R M} (hB₁ : B.nondegenerate) (hB₂ : sym_bilin_form.is_sym B) 
+  (hK : ∃ x : M, x ≠ 0) : ∃ x, B x x ≠ 0 :=
 begin
   by_contra, push_neg at h,
   have : ∀ u v : M, 2 * B u v = 0,
@@ -148,69 +166,31 @@ begin
   exact let ⟨v, hv⟩ := hK in hv $ hB₁ v (hcon v),
 end
 
-/- Let V be a finite dimensional vector space over the field K with the 
-  nondegenerate bilinear form B. Then for all m ∈ M, f_m : M → R : n ↦ B m n is 
-  a linear functional in the dual space.
-
-  Furthermore, the map, φ : M → M* : m ↦ f_m is an isomorphism.
--/
-
-/-- Given a bilinear form `B`, `to_dual_aux` maps elements `m` of the module `M`
-  to the functional `λ x, B m x` in the dual space. -/
-def to_dual_aux (B : bilin_form R M) (m : M) : module.dual R M := 
-{ to_fun := λ n, B m n,
-  map_add' := add_right m,
-  map_smul' := λ _ _, by simp only [algebra.id.smul_eq_mul, smul_right] }
-
-@[simp] lemma to_dual_aux_def {B : bilin_form R M} {m n : M} : 
-  B.to_dual_aux m n = B m n := rfl
-
-/-- Given a bilinear form `B` on the modual `M`, `to_dual' B` is the linear map 
-  from `M` to its dual such that `to_dual B m` is the functional `λ x, B m x`. -/
-def to_dual' (B : bilin_form R M) : M →ₗ[R] module.dual R M := 
-{ to_fun := λ m, to_dual_aux B m,
-  map_add' := by { intros, ext, simp },
-  map_smul' := by { intros, ext, simp } }
-
 variables {V : Type u} {K : Type v} 
 variables [field K] [add_comm_group V] [vector_space K V] 
- 
-lemma to_dual'_injective (B : bilin_form R M) (hB : B.nondegenerate) : 
-  function.injective (to_dual' B) :=
-B.to_dual'.to_add_monoid_hom.injective_iff.2 (λ a ha, hB _ (linear_map.congr_fun ha))
 
-section finite_dimensional
-
-instance [H : finite_dimensional K V] : finite_dimensional K (module.dual K V) := 
+/-- A set of orthogonal vectors `v` with respect to some bilinear form `B` is 
+  linearly independent if for all `i`, `B (v i) (v i) ≠ 0`. -/
+lemma is_ortho_linear_independent 
+  {n : Type w} {B : bilin_form K V} {v : n → V} 
+  (hv₁ : B.is_ortho' v) (hv₂ : ∀ i, B (v i) (v i) ≠ 0) : linear_independent K v :=
 begin
-  refine @linear_equiv.finite_dimensional _ _ _ _ _ _ _ _ _ H,
-  have hB := classical.some_spec (finite_dimensional.exists_is_basis_finite K V),
-  haveI := classical.choice hB.2,
-  exact is_basis.to_dual_equiv _ hB.1
+  rw linear_independent_iff',
+  intros s w hs i hi,
+  have : B (s.sum $ λ (i : n), w i • v i) (v i) = 0,
+  { rw [hs, zero_left] },
+  have hsum : s.sum (λ (j : n), w j * B (v j) (v i)) = 
+    s.sum (λ (j : n), if i = j then w j * B (v j) (v i) else 0),
+  { refine finset.sum_congr rfl (λ j hj, _),
+    by_cases (i = j),
+    { rw [if_pos h] },
+    { rw [if_neg h, hv₁ _ _ h, mul_zero] } },
+  simp_rw [map_sum_left, smul_left, hsum, finset.sum_ite_eq,
+           if_pos hi, mul_eq_zero] at this,
+  cases this, 
+  { assumption },
+  { exact false.elim (hv₂ i $ this) }
 end
-
-variable [finite_dimensional K V] 
-
--- In order to show that `to_dual` is a surjective map we used the fact that 
--- the dimensions of a vector space equal to the dimensions of its dual.
--- So rather than working with modules over rings, we work with vecotor spaces
-lemma to_dual'_bijective (B : bilin_form K V) (hB : B.nondegenerate) : 
-  function.bijective (to_dual' B) :=
-begin
-  refine ⟨B.to_dual'_injective hB, _⟩,
-  change function.surjective B.to_dual',
-  refine (linear_map.injective_iff_surjective_of_findim_eq_findim 
-    (linear_equiv.findim_eq _)).1 (B.to_dual'_injective hB),
-  have hB := classical.some_spec (finite_dimensional.exists_is_basis_finite K V),
-  haveI := classical.choice hB.2,
-  exact is_basis.to_dual_equiv _ hB.1
-end
-
-/-- To dual is the `linear_equiv` with the underlying linear map `to_dual'`. -/
-noncomputable def to_dual (B : bilin_form K V) (hB : B.nondegenerate) : 
-  V ≃ₗ[K] module.dual K V := 
-{ map_smul' := B.to_dual'.map_smul',
-  .. add_equiv.of_bijective B.to_dual'.to_add_monoid_hom (to_dual'_bijective B hB) }
 
 -- ↓ This lemma only applies in fields as we require `a * b = 0 → a = 0 ∨ b = 0`
 lemma span_inf_ortho_eq_bot {B : bilin_form K V} (hB₁ : B.nondegenerate) 
@@ -242,7 +222,161 @@ begin
   { intros z hz,
     rcases submodule.mem_span_singleton.1 hz with ⟨μ, rfl⟩,
     simp [is_ortho, mul_assoc, inv_mul_cancel hx, hB₂ x] },
-  { simp },
+  { simp }
+end
+
+lemma is_compl_prop [hK : invertible (2 : K)] {B : bilin_form K V} -- temp
+  (hB₁ : B.nondegenerate) (hB₂ : sym_bilin_form.is_sym B) (hV : ∃ x : V, x ≠ 0) : 
+  ∃ W : submodule K V, W ⊓ B.ortho W = ⊥ ∧ W ⊔ B.ortho W = ⊤ :=
+begin
+  rcases exists_bilin_form_self_neq_zero hB₁ hB₂ hV with ⟨x, hx⟩,
+  refine ⟨submodule.span K ({x} : set V), 
+    span_inf_ortho_eq_bot hB₁ hB₂ hx, span_sup_ortho_eq_top hB₁ hB₂ hx⟩
+end
+
+def is_compl_singleton [hK : invertible (2 : K)] {B : bilin_form K V} 
+  (hB₁ : B.nondegenerate) (hB₂ : sym_bilin_form.is_sym B) {x : V} (hx : B x x ≠ 0) : 
+  is_compl (submodule.span K ({x} : set V)) 
+    (B.ortho (submodule.span K ({x} : set V))) := 
+{ inf_le_bot := eq_bot_iff.1 $ span_inf_ortho_eq_bot hB₁ hB₂ hx,
+  top_le_sup := eq_top_iff.1 $ span_sup_ortho_eq_top hB₁ hB₂ hx }
+
+/-- The natural isomorphism between a singleton and the quotient by its 
+  orthogonal complement. -/
+noncomputable def quotient_equiv_of_is_compl_ortho_singleton 
+  [hK : invertible (2 : K)] {B : bilin_form K V} (hB₁ : B.nondegenerate) 
+  (hB₂ : sym_bilin_form.is_sym B) {x : V} (hx : B x x ≠ 0) := 
+  submodule.quotient_equiv_of_is_compl _ _ (is_compl_singleton hB₁ hB₂ hx)
+  
+lemma restrict_ortho_singleton_nondegenerate (B : bilin_form K V) (hB₁ : nondegenerate B) 
+  (hB₂ : sym_bilin_form.is_sym B) {x : V} (hx : B x x ≠ 0) : 
+  nondegenerate $ B.restrict $ B.ortho (submodule.span K ({x} : set V)) :=
+begin
+  refine λ m hm, submodule.coe_eq_zero.1 (hB₁ m.1 (λ n, _)),
+  have : n ∈ submodule.span K ({x} : set V) ⊔ 
+    B.ortho (submodule.span K ({x} : set V)) :=
+    (span_sup_ortho_eq_top hB₁ hB₂ hx).symm ▸ submodule.mem_top,
+  rcases submodule.mem_sup.1 this with ⟨y, hy, z, hz, rfl⟩,
+  specialize hm ⟨z, hz⟩, 
+  rw [restric_def, subtype.val_eq_coe] at hm,
+  erw [add_right, show B m.1 y = 0, by exact m.2 y hy, hm, add_zero]
+end
+
+/- Let V be a finite dimensional vector space over the field K with the 
+  nondegenerate bilinear form B. Then for all m ∈ M, f_m : M → R : n ↦ B m n is 
+  a linear functional in the dual space.
+
+  Furthermore, the map, φ : M → M* : m ↦ f_m is an isomorphism.
+-/
+
+/-- Given a bilinear form `B`, `to_dual_aux` maps elements `m` of the module `M`
+  to the functional `λ x, B m x` in the dual space. -/
+def to_dual_aux (B : bilin_form R M) (m : M) : module.dual R M := 
+{ to_fun := λ n, B m n,
+  map_add' := add_right m,
+  map_smul' := λ _ _, by simp only [algebra.id.smul_eq_mul, smul_right] }
+
+@[simp] lemma to_dual_aux_def {B : bilin_form R M} {m n : M} : 
+  B.to_dual_aux m n = B m n := rfl
+
+/-- Given a bilinear form `B` on the modual `M`, `to_dual' B` is the linear map 
+  from `M` to its dual such that `to_dual B m` is the functional `λ x, B m x`. -/
+def to_dual' (B : bilin_form R M) : M →ₗ[R] module.dual R M := 
+{ to_fun := λ m, to_dual_aux B m,
+  map_add' := by { intros, ext, simp },
+  map_smul' := by { intros, ext, simp } }
+ 
+lemma to_dual'_injective (B : bilin_form R M) (hB : B.nondegenerate) : 
+  function.injective (to_dual' B) :=
+B.to_dual'.to_add_monoid_hom.injective_iff.2 (λ a ha, hB _ (linear_map.congr_fun ha))
+
+section finite_dimensional
+
+open finite_dimensional
+
+instance [H : finite_dimensional K V] : finite_dimensional K (module.dual K V) := 
+begin
+  refine @linear_equiv.finite_dimensional _ _ _ _ _ _ _ _ _ H,
+  have hB := classical.some_spec (exists_is_basis_finite K V),
+  haveI := classical.choice hB.2,
+  exact is_basis.to_dual_equiv _ hB.1
+end
+
+variable [finite_dimensional K V] 
+
+-- In order to show that `to_dual` is a surjective map we used the fact that 
+-- the dimensions of a vector space equal to the dimensions of its dual.
+-- So rather than working with modules over rings, we work with vecotor spaces
+lemma to_dual'_bijective (B : bilin_form K V) (hB : B.nondegenerate) : 
+  function.bijective (to_dual' B) :=
+begin
+  refine ⟨B.to_dual'_injective hB, _⟩,
+  change function.surjective B.to_dual',
+  refine (linear_map.injective_iff_surjective_of_findim_eq_findim 
+    (linear_equiv.findim_eq _)).1 (B.to_dual'_injective hB),
+  have hB := classical.some_spec (exists_is_basis_finite K V),
+  haveI := classical.choice hB.2,
+  exact is_basis.to_dual_equiv _ hB.1
+end
+
+/-- To dual is the `linear_equiv` with the underlying linear map `to_dual'`. -/
+noncomputable def to_dual (B : bilin_form K V) (hB : B.nondegenerate) : 
+  V ≃ₗ[K] module.dual K V := 
+{ map_smul' := B.to_dual'.map_smul',
+  .. add_equiv.of_bijective B.to_dual'.to_add_monoid_hom (to_dual'_bijective B hB) }
+
+-- We start proving that bilinear forms are diagonalisable
+
+/- We have:
+- isomorphism `W ⊕ W^⊥ ≃ₗ[K] V`
+
+lemma a. If `W 
+pf.
+-/
+
+-- ↓ Move
+lemma is_basis.trivial (hV : findim K V = 0) : is_basis K (λ _, 0 : n → V) :=
+begin
+  -- have : findim K (⊤ : submodule K V) = 0,
+  --   { rw [findim_top, hV] },
+  -- rw findim_eq_zero at this,
+  sorry
+end
+
+lemma findim_ortho_span_singleton [hK : invertible (2 : K)] 
+  {B : bilin_form K V} (hB₁ : B.nondegenerate) (hB₂ : sym_bilin_form.is_sym B) 
+  {x : V} (hx : B x x ≠ 0) : findim K V = 
+    findim K (B.ortho (submodule.span K ({x} : set V))) + 1 :=
+begin
+  rw [← submodule.findim_quotient_add_findim (submodule.span K ({x} : set V)), 
+      findim_span_singleton 
+        (show x ≠ 0, by exact λ hx', hx (hx'.symm ▸ zero_left _)), 
+      (quotient_equiv_of_is_compl_ortho_singleton hB₁ hB₂ hx).findim_eq]
+end
+
+theorem exists_orthogonal_basis [hK : invertible (2 : K)] 
+  {B : bilin_form K V} (hB₁ : B.nondegenerate) (hB₂ : sym_bilin_form.is_sym B) : 
+  ∃ v : n → V, B.is_ortho' v ∧ is_basis K v :=
+begin
+  tactic.unfreeze_local_instances,
+  induction hd : findim K V with d hi generalizing V,
+  { exact ⟨λ _, 0, λ _ _ _, zero_left _, is_basis.trivial hd⟩ },
+  { cases exists_bilin_form_self_neq_zero hB₁ hB₂ _ with x hx,
+    { rw findim_ortho_span_singleton hB₁ hB₂ hx at hd,
+      rcases @hi (B.ortho (submodule.span K ({x} : set V))) _ _ _ 
+        (B.restrict _) (B.restrict_ortho_singleton_nondegenerate hB₁ hB₂ hx)
+        (B.restrict_sym hB₂ _) (nat.succ.inj hd) with ⟨v', hv₁, hv₂⟩,
+      -- We now have a orthogonal basis on the orthogonal space 
+      sorry
+    },
+    suffices : nontrivial V, 
+    { rcases nontrivial_iff.1 this with ⟨x, y, hxy⟩,
+      by_cases (x = 0),
+      { exact ⟨y, h ▸ hxy.symm⟩ },
+      { exact ⟨x, h⟩ } },
+    apply (@findim_pos_iff K _ _ _ _ _).1,
+    rw hd, exact nat.succ_pos _,
+    apply_instance }
 end
 
 end finite_dimensional
