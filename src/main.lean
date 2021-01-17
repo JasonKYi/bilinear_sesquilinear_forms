@@ -34,7 +34,7 @@ def restrict (B : bilin_form R M) (W : submodule R M) : bilin_form R W :=
   bilin_add_right := by simp,
   bilin_smul_right := by simp }.
 
-@[simp] lemma restric_def (B : bilin_form R M) (W : submodule R M) (x y : W) : 
+@[simp] lemma restrict_def (B : bilin_form R M) (W : submodule R M) (x y : W) : 
   B.restrict W x y = B x.1 y.1 := rfl
 
 lemma restrict_sym (B : bilin_form R M) (hB : sym_bilin_form.is_sym B) 
@@ -172,7 +172,7 @@ variables [field K] [add_comm_group V] [vector_space K V]
 /-- A set of orthogonal vectors `v` with respect to some bilinear form `B` is 
   linearly independent if for all `i`, `B (v i) (v i) ≠ 0`. -/
 lemma is_ortho_linear_independent 
-  {n : Type w} {B : bilin_form K V} {v : n → V} 
+  {n : Type w} (B : bilin_form K V) {v : n → V} 
   (hv₁ : B.is_ortho' v) (hv₂ : ∀ i, B (v i) (v i) ≠ 0) : linear_independent K v :=
 begin
   rw linear_independent_iff',
@@ -243,11 +243,18 @@ def is_compl_singleton [hK : invertible (2 : K)] {B : bilin_form K V}
 
 /-- The natural isomorphism between a singleton and the quotient by its 
   orthogonal complement. -/
-noncomputable def quotient_equiv_of_is_compl_ortho_singleton 
+noncomputable def quotient_equiv_of_ortho_singleton 
   [hK : invertible (2 : K)] {B : bilin_form K V} (hB₁ : B.nondegenerate) 
   (hB₂ : sym_bilin_form.is_sym B) {x : V} (hx : B x x ≠ 0) := 
   submodule.quotient_equiv_of_is_compl _ _ (is_compl_singleton hB₁ hB₂ hx)
   
+/-- The natural isomorphism from the product between a singleton and its 
+  orthogonal component and the whole space. -/
+noncomputable def prod_equiv_of_ortho_singleton 
+  [hK : invertible (2 : K)] {B : bilin_form K V} (hB₁ : B.nondegenerate) 
+  (hB₂ : sym_bilin_form.is_sym B) {x : V} (hx : B x x ≠ 0) :=
+  submodule.prod_equiv_of_is_compl _ _ (is_compl_singleton hB₁ hB₂ hx)
+
 lemma restrict_ortho_singleton_nondegenerate (B : bilin_form K V) (hB₁ : nondegenerate B) 
   (hB₂ : sym_bilin_form.is_sym B) {x : V} (hx : B x x ≠ 0) : 
   nondegenerate $ B.restrict $ B.ortho (submodule.span K ({x} : set V)) :=
@@ -258,7 +265,7 @@ begin
     (span_sup_ortho_eq_top hB₁ hB₂ hx).symm ▸ submodule.mem_top,
   rcases submodule.mem_sup.1 this with ⟨y, hy, z, hz, rfl⟩,
   specialize hm ⟨z, hz⟩, 
-  rw [restric_def, subtype.val_eq_coe] at hm,
+  rw [restrict_def, subtype.val_eq_coe] at hm,
   erw [add_right, show B m.1 y = 0, by exact m.2 y hy, hm, add_zero]
 end
 
@@ -326,21 +333,16 @@ noncomputable def to_dual (B : bilin_form K V) (hB : B.nondegenerate) :
   .. add_equiv.of_bijective B.to_dual'.to_add_monoid_hom (to_dual'_bijective B hB) }
 
 -- We start proving that bilinear forms are diagonalisable
-
-/- We have:
-- isomorphism `W ⊕ W^⊥ ≃ₗ[K] V`
-
-lemma a. If `W 
-pf.
--/
+-- or equivilently there exists a orthogonal basis
 
 -- ↓ Move
-lemma is_basis.trivial (hV : findim K V = 0) : is_basis K (λ _, 0 : n → V) :=
+lemma is_basis.trivial (hV : findim K V = 0) : is_basis K (λ x : fin 0, (0 : V)) :=
 begin
-  -- have : findim K (⊤ : submodule K V) = 0,
-  --   { rw [findim_top, hV] },
-  -- rw findim_eq_zero at this,
-  sorry
+  split,
+  rw linear_independent_iff', intros, exact fin.elim0 i,
+  rw ← findim_top at hV,
+  rw [eq_top_iff, (@findim_eq_zero K V _ _ _ _ _).1 hV],
+  exact bot_le
 end
 
 lemma findim_ortho_span_singleton [hK : invertible (2 : K)] 
@@ -351,24 +353,71 @@ begin
   rw [← submodule.findim_quotient_add_findim (submodule.span K ({x} : set V)), 
       findim_span_singleton 
         (show x ≠ 0, by exact λ hx', hx (hx'.symm ▸ zero_left _)), 
-      (quotient_equiv_of_is_compl_ortho_singleton hB₁ hB₂ hx).findim_eq]
+      (quotient_equiv_of_ortho_singleton hB₁ hB₂ hx).findim_eq]
 end
 
+/-- Given a nondegenerate symmetric basis `B` on some vector space `V` over the 
+  field `K` with invertible `2`, there exists a orthogonal basis. -/
 theorem exists_orthogonal_basis [hK : invertible (2 : K)] 
   {B : bilin_form K V} (hB₁ : B.nondegenerate) (hB₂ : sym_bilin_form.is_sym B) : 
-  ∃ v : n → V, B.is_ortho' v ∧ is_basis K v :=
+  ∃ v : fin (findim K V) → V, 
+    B.is_ortho' v ∧ is_basis K v ∧ ∀ i, B (v i) (v i) ≠ 0 :=
 begin
   tactic.unfreeze_local_instances,
   induction hd : findim K V with d hi generalizing V,
-  { exact ⟨λ _, 0, λ _ _ _, zero_left _, is_basis.trivial hd⟩ },
+  { refine ⟨λ _, 0, λ _ _ _, zero_left _, is_basis.trivial hd, fin.elim0⟩ },
   { cases exists_bilin_form_self_neq_zero hB₁ hB₂ _ with x hx,
-    { rw findim_ortho_span_singleton hB₁ hB₂ hx at hd,
+    { have hd' := hd,
+      rw findim_ortho_span_singleton hB₁ hB₂ hx at hd,
       rcases @hi (B.ortho (submodule.span K ({x} : set V))) _ _ _ 
         (B.restrict _) (B.restrict_ortho_singleton_nondegenerate hB₁ hB₂ hx)
-        (B.restrict_sym hB₂ _) (nat.succ.inj hd) with ⟨v', hv₁, hv₂⟩,
+        (B.restrict_sym hB₂ _) (nat.succ.inj hd) with ⟨v', hv₁, hv₂, hv₃⟩,
       -- We now have a orthogonal basis on the orthogonal space 
-      sorry
-    },
+      refine ⟨λ i, if h : i ≠ 0 then coe (v' (i.pred h)) else x, λ i j hij, _, _, _⟩,
+      { by_cases hi : i = 0,
+        { subst i, 
+          simp only [eq_self_iff_true, not_true, ne.def, dif_neg, 
+            not_false_iff, dite_not], 
+          rw dif_neg hij.symm,
+          exact (v' (j.pred hij.symm)).2 _ (submodule.mem_span_singleton_self x) },
+        by_cases hj : j = 0,
+        { subst j,
+          simp only [eq_self_iff_true, not_true, ne.def, dif_neg, 
+            not_false_iff, dite_not], 
+          rw [dif_neg hi, hB₂],
+          exact (v' (i.pred hi)).2 _ (submodule.mem_span_singleton_self x) },
+        { simp_rw [dif_pos hi, dif_pos hj],
+          { rw [hB₂, ← hv₁ (j.pred hj) (i.pred hi) _], refl,
+            simpa using hij.symm } } }, 
+      { refine is_basis_of_linear_independent_of_card_eq_findim 
+          (B.is_ortho_linear_independent _ _)
+          (by rw [hd', fintype.card_fin]),
+        { intros i j hij,
+          by_cases hi : i = 0,
+          { subst hi,
+            simp only [eq_self_iff_true, not_true, ne.def, dif_neg, 
+              not_false_iff, dite_not], 
+            rw dif_neg hij.symm,
+            exact (v' (j.pred hij.symm)).2 _ (submodule.mem_span_singleton_self x) },
+          by_cases hj : j = 0,
+          { subst j,
+            simp only [eq_self_iff_true, not_true, ne.def, dif_neg, 
+              not_false_iff, dite_not], 
+            rw [dif_neg hi, hB₂],
+            exact (v' (i.pred hi)).2 _ (submodule.mem_span_singleton_self x) },
+          { simp_rw [dif_pos hi, dif_pos hj],
+            { rw [hB₂, ← hv₁ (j.pred hj) (i.pred hi) _], refl,
+              simpa using hij.symm } } },
+        { intro i,
+          by_cases hi : i ≠ 0,
+          { rw dif_pos hi,
+            exact hv₃ (i.pred hi) },
+          { rw dif_neg hi, exact hx } } },
+      { intro i,
+          by_cases hi : i ≠ 0,
+          { rw dif_pos hi,
+            exact hv₃ (i.pred hi) },
+          { rw dif_neg hi, exact hx } } },
     suffices : nontrivial V, 
     { rcases nontrivial_iff.1 this with ⟨x, y, hxy⟩,
       by_cases (x = 0),
@@ -377,10 +426,8 @@ begin
     apply (@findim_pos_iff K _ _ _ _ _).1,
     rw hd, exact nat.succ_pos _,
     apply_instance }
-end
+end .
 
 end finite_dimensional
 
 end bilin_form
-
--- I would like to show that W ⊕ W^⊥ = V
