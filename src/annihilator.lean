@@ -10,10 +10,6 @@ noncomputable def linear_map.quot_ker_equiv_of_surjective
 f.quot_ker_equiv_range.trans
   (linear_equiv.of_top f.range (linear_map.range_eq_top.2 hf))
 
-example {R : Type u} {M : Type v} [comm_ring R] 
-  [add_comm_group M] [module R M] : 
-  (⊤ : submodule R M) ≃ₗ[R] M := linear_equiv.of_top ⊤ rfl
-
 namespace submodule
 
 def dual_annihilator {R : Type u} {M : Type v} [comm_ring R] [add_comm_group M]
@@ -81,74 +77,103 @@ begin
     exact P.sub_mem r.2 p.2 }
 end .
 
+noncomputable def is_compl_proj_left_aux 
+  {P Q : submodule R M} (h : is_compl P Q) (m : M) : P :=
+classical.some (exists_unique_add_of_is_compl h m)
+
+noncomputable def is_compl_proj_right_aux 
+  {P Q : submodule R M} (h : is_compl P Q) (m : M) : Q :=
+classical.some (classical.some_spec (exists_unique_add_of_is_compl h m))
+
+theorem is_compl_sum {P Q : submodule R M} (h : is_compl P Q) (m : M) :
+  (is_compl_proj_left_aux h m : M) + is_compl_proj_right_aux h m = m :=
+(classical.some_spec (classical.some_spec (exists_unique_add_of_is_compl h m))).1
+
+theorem is_compl_unique {P Q : submodule R M} (h : is_compl P Q) (m : M) :
+  ∀ (r : P) (s : Q), (r : M) + s = m → r = 
+  is_compl_proj_left_aux h m ∧ s = is_compl_proj_right_aux h m :=
+(classical.some_spec (classical.some_spec (exists_unique_add_of_is_compl h m))).2
+
+noncomputable def is_compl_proj_left {P Q : submodule R M} (h : is_compl P Q) : 
+  M →ₗ[R] P :=
+{ to_fun := is_compl_proj_left_aux h,
+  map_add' := λ x y, begin
+    refine (is_compl_unique h (x + y) 
+      (is_compl_proj_left_aux h x + is_compl_proj_left_aux h y)
+      (is_compl_proj_right_aux h x + is_compl_proj_right_aux h y) _).1.symm,
+    conv_rhs {rw [←is_compl_sum h x, ← is_compl_sum h y]},
+    simp [add_add_add_comm],
+  end,
+  map_smul' := λ r m, begin
+    refine (is_compl_unique h (r • m) (r • is_compl_proj_left_aux h m) 
+      (r • is_compl_proj_right_aux h m) _).1.symm,
+    conv_rhs {rw [←is_compl_sum h m]},
+    simp,
+  end }
+
+@[simp] lemma is_compl_proj_left_apply 
+  {P Q : submodule R M} (h : is_compl P Q) (m : M) :
+  is_compl_proj_left h m = is_compl_proj_left_aux h m := rfl
+
+@[simp] lemma left_inverse_is_compl_proj_left {P Q : submodule R M} (h : is_compl P Q) : 
+  (is_compl_proj_left h).comp P.subtype = linear_map.id :=
+begin
+  ext, erw [linear_map.id_coe, id.def, coe_eq_coe, linear_map.comp_apply, 
+    subtype_apply, is_compl_proj_left_apply, ← (is_compl_unique h x.1 x 0 (add_zero _)).1],
+end
+
+noncomputable def is_compl_proj_right {P Q : submodule R M} (h : is_compl P Q) : 
+  M →ₗ[R] Q :=
+{ to_fun := is_compl_proj_right_aux h,
+  map_add' := λ x y, begin
+    refine (is_compl_unique h (x + y) 
+      (is_compl_proj_left_aux h x + is_compl_proj_left_aux h y)
+      (is_compl_proj_right_aux h x + is_compl_proj_right_aux h y) _).2.symm,
+    conv_rhs {rw [←is_compl_sum h x, ← is_compl_sum h y]},
+    simp [add_add_add_comm],
+  end,
+  map_smul' := λ r m, begin
+    refine (is_compl_unique h (r • m) (r • is_compl_proj_left_aux h m) 
+      (r • is_compl_proj_right_aux h m) _).2.symm,
+    conv_rhs {rw [←is_compl_sum h m]},
+    simp,
+  end }
+
+@[simp] lemma is_compl_proj_right_apply 
+  {P Q : submodule R M} (h : is_compl P Q) (m : M) :
+  is_compl_proj_right h m = is_compl_proj_right_aux h m := rfl
+
+@[simp] lemma left_inverse_is_compl_proj_right {P Q : submodule R M} (h : is_compl P Q) : 
+  (is_compl_proj_right h).comp Q.subtype = linear_map.id :=
+begin
+  ext, erw [linear_map.id_coe, id.def, coe_eq_coe, linear_map.comp_apply, 
+    subtype_apply, is_compl_proj_right_apply, ← (is_compl_unique h x.1 0 x (zero_add _)).2],
+end
+
 noncomputable def of_is_compl {P Q : submodule R M} 
   (h : is_compl P Q) (φ : P →ₗ[R] M₁) (ψ : Q →ₗ[R] M₁) : M →ₗ[R] M₁ := 
-{ to_fun := λ m,
-    let p := classical.indefinite_description _
-        (exists_unique_add_of_is_compl h m) in
-    let q := classical.indefinite_description _ p.2 in φ p.1 + ψ q.1,
-  map_add' := 
-    begin
-      intros x y,
-      set r := classical.indefinite_description _
-        (exists_unique_add_of_is_compl h (x + y)) with hr,
-      set s := classical.indefinite_description _ r.2 with hs,
-      set rx := classical.indefinite_description _
-        (exists_unique_add_of_is_compl h x) with hrx,
-      set sx := classical.indefinite_description _ rx.2 with hsx,
-      set ry := classical.indefinite_description _
-        (exists_unique_add_of_is_compl h y) with hry,
-      set sy := classical.indefinite_description _ ry.2 with hsy,
-      
-      change φ r.1 + ψ s.1 = (φ rx.1 + ψ sx.1) + (φ ry.1 + ψ sy.1), 
-      have heq : (rx.1 + ry.1).1 + (sx.1 + sy.1).1 = x + y,
-      { simp only [subtype.val_eq_coe, coe_add],
-        erw [← add_assoc, add_comm, add_comm ↑↑rx, add_assoc, sx.2.1, 
-             ← add_assoc, add_comm ↑↑sy, sy.2.1, add_comm] },
-      obtain ⟨h₁, h₂⟩ := s.2.2 (rx + ry) (sx + sy) heq,
-      simp_rw [← h₁, ← h₂, linear_map.map_add, add_assoc, 
-               ← add_assoc (ψ sx.1), add_comm (ψ sx.1), ← add_assoc], refl,
-    end,
-  map_smul' := 
-    begin
-      intros m x,
-      set r := classical.indefinite_description _
-        (exists_unique_add_of_is_compl h x) with hr,
-      set s := classical.indefinite_description _ r.2 with hs,
-      set rm := classical.indefinite_description _
-        (exists_unique_add_of_is_compl h (m • x)) with hrm,
-      set sm := classical.indefinite_description _ rm.2 with hsm,
-
-      change φ rm.1 + ψ sm.1 = m • (φ r.1 +  ψ s.1),
-      rw [smul_add, ← linear_map.map_smul, ← linear_map.map_smul],
-      obtain ⟨h₁, h₂⟩ := sm.2.2 (m • r.1) (m • s.1) _,
-      { rw [h₁, h₂] },
-      { simp only [coe_smul, subtype.val_eq_coe, ← smul_add],
-        erw s.2.1 }
-    end } .
+ φ.comp (is_compl_proj_left h) + ψ.comp (is_compl_proj_right h)
 
 lemma of_is_compl_left_apply {P Q : submodule R M} 
   {φ : P →ₗ[R] M₁} {ψ : Q →ₗ[R] M₁} (h : is_compl P Q) (p : P) : 
   of_is_compl h φ ψ p.1 = φ p :=
 begin
-  set r := classical.indefinite_description _
-    (exists_unique_add_of_is_compl h p) with hr,
-  set s := classical.indefinite_description _ r.2 with hs,
-  change φ r.1 + ψ s.1 = _,
-  obtain ⟨h₁, h₂⟩ := s.2.2 p 0 (add_zero _),
-  rw [← h₂, ← h₁, linear_map.map_zero, add_zero]
+  obtain ⟨h₁, h₂⟩ := is_compl_unique h p.1 p 0 (add_zero _),
+  simp only [of_is_compl, is_compl_proj_left_apply, 
+    is_compl_proj_right_apply, subtype.val_eq_coe, 
+    linear_map.comp_apply, linear_map.add_apply],
+  erw [← h₁, ← h₂, linear_map.map_zero, add_zero]
 end  
 
 lemma of_is_compl_right_apply {P Q : submodule R M} 
   {φ : P →ₗ[R] M₁} {ψ : Q →ₗ[R] M₁} (h : is_compl P Q) (q : Q) : 
   of_is_compl h φ ψ q.1 = ψ q :=
 begin
-  set r := classical.indefinite_description _
-    (exists_unique_add_of_is_compl h q) with hr,
-  set s := classical.indefinite_description _ r.2 with hs,
-  change φ r.1 + ψ s.1 = _,
-  obtain ⟨h₁, h₂⟩ := s.2.2 0 q (zero_add _),
-  rw [← h₂, ← h₁, linear_map.map_zero, zero_add]
+  obtain ⟨h₁, h₂⟩ := is_compl_unique h q.1 0 q (zero_add _),
+  simp only [of_is_compl, is_compl_proj_left_apply, 
+    is_compl_proj_right_apply, subtype.val_eq_coe, 
+    linear_map.comp_apply, linear_map.add_apply],
+  erw [← h₁, ← h₂, linear_map.map_zero, zero_add]
 end  
 
 end of_compl
