@@ -57,71 +57,75 @@ open submodule
 open_locale classical
 
 variables {M₁ : Type w} [add_comm_group M₁] [module R M₁]
-variables {P Q : submodule R M}
+variables {p q : submodule R M}
 
-lemma exists_unique_add_of_is_compl (hc : is_compl P Q) (x : M) : 
-  ∃ (p : P) (q : Q), (p.1 + q.1 = x ∧ ∀ (r : P) (s : Q), 
-    r.1 + s.1 = x → r = p ∧ s = q) :=
+lemma exists_unique_add_of_is_compl (hc : is_compl p q) (x : M) : 
+  ∃ (u : p) (v : q), (u.1 + v.1 = x ∧ ∀ (r : p) (s : q), 
+    r.1 + s.1 = x → r = u ∧ s = v) :=
 begin
-  obtain ⟨p, q, h⟩ := 
-    submodule.mem_sup'.1 ((eq_top_iff.2 hc.2).symm ▸ mem_top : x ∈ P ⊔ Q),
-  refine ⟨p, q, h, λ r s hrs, _⟩, 
-  erw [← h, ← @add_right_cancel_iff _ _ (-s : M) (r + s) (p + q), 
+  obtain ⟨u, v, h⟩ := 
+    submodule.mem_sup'.1 ((eq_top_iff.2 hc.2).symm ▸ mem_top : x ∈ p ⊔ q),
+  refine ⟨u, v, h, λ r s hrs, _⟩, 
+  erw [← h, ← @add_right_cancel_iff _ _ (-s : M) (r + s) (u + v), 
        add_assoc, add_neg_self, add_zero, 
-       ← @add_left_cancel_iff _ _ (-p : M) r (p + q + -s),
+       ← @add_left_cancel_iff _ _ (-u : M) r (u + v + -s),
        ← add_assoc, ← add_assoc, add_left_neg, zero_add, add_comm, 
        ← sub_eq_add_neg, ← sub_eq_add_neg] at hrs,
   split; rw [← sub_eq_zero],
-  { suffices : r.1 - p.1 ∈ Q,
+  { suffices : r.1 - u.1 ∈ q,
     { rw [← coe_eq_coe, coe_sub],
-      exact (submodule.mem_bot _).1 (hc.1 ⟨P.sub_mem r.2 p.2, this⟩) },
-    erw hrs, exact Q.sub_mem q.2 s.2 },
-  { suffices : s.1 - q.1 ∈ P,
+      exact (submodule.mem_bot _).1 (hc.1 ⟨p.sub_mem r.2 u.2, this⟩) },
+    erw hrs, exact q.sub_mem v.2 s.2 },
+  { suffices : s.1 - v.1 ∈ p,
     { rw [← coe_eq_coe, coe_sub],
-      exact (submodule.mem_bot _).1 (hc.1 ⟨this, Q.sub_mem s.2 q.2⟩) },
+      exact (submodule.mem_bot _).1 (hc.1 ⟨this, q.sub_mem s.2 v.2⟩) },
     erw [← neg_mem_iff, neg_sub, ← hrs],
-    exact P.sub_mem r.2 p.2 }
+    exact p.sub_mem r.2 u.2 }
 end .
 
+/-- Given linear maps `φ` and `ψ` from complement submodules, `of_is_compl` is 
+the induced linear map over the entire module. -/
 noncomputable def of_is_compl 
-  (h : is_compl P Q) (φ : P →ₗ[R] M₁) (ψ : Q →ₗ[R] M₁) : M →ₗ[R] M₁ := 
- φ.comp (linear_proj_of_is_compl P Q h) + ψ.comp (linear_proj_of_is_compl Q P h.symm)
+  (h : is_compl p q) (φ : p →ₗ[R] M₁) (ψ : q →ₗ[R] M₁) : M →ₗ[R] M₁ := 
+ φ.comp (linear_proj_of_is_compl p q h) + ψ.comp (linear_proj_of_is_compl q p h.symm)
 
 @[simp] lemma of_is_compl_left_apply 
-  (h : is_compl P Q) {φ : P →ₗ[R] M₁} {ψ : Q →ₗ[R] M₁} (p : P) : 
-  of_is_compl h φ ψ (p : M) = φ p :=
+  (h : is_compl p q) {φ : p →ₗ[R] M₁} {ψ : q →ₗ[R] M₁} (u : p) : 
+  of_is_compl h φ ψ (u : M) = φ u :=
 by erw [of_is_compl, linear_map.add_apply, linear_map.comp_apply, 
         linear_proj_of_is_compl_apply_left, linear_map.comp_apply, 
         linear_proj_of_is_compl_apply_right, linear_map.map_zero, add_zero]
 
-@[simp] lemma of_is_compl_right_apply {P Q : submodule R M} 
-  (h : is_compl P Q) {φ : P →ₗ[R] M₁} {ψ : Q →ₗ[R] M₁} (q : Q) : 
-  of_is_compl h φ ψ (q : M) = ψ q :=
+@[simp] lemma of_is_compl_right_apply  
+  (h : is_compl p q) {φ : p →ₗ[R] M₁} {ψ : q →ₗ[R] M₁} (v : q) : 
+  of_is_compl h φ ψ (v : M) = ψ v :=
 by erw [of_is_compl, linear_map.add_apply, linear_map.comp_apply, 
         linear_proj_of_is_compl_apply_right, linear_map.comp_apply,
         linear_proj_of_is_compl_apply_left, linear_map.map_zero, zero_add]
 
-@[simp] lemma of_is_compl_zero (h : is_compl P Q) : 
+@[simp] lemma of_is_compl_zero (h : is_compl p q) : 
   (of_is_compl h 0 0 : M →ₗ[R] M₁) = 0 :=
 begin
-  ext, obtain ⟨p, q, rfl, _⟩ := exists_unique_add_of_is_compl h x,
+  ext, obtain ⟨_, _, rfl, _⟩ := exists_unique_add_of_is_compl h x,
   erw [linear_map.map_add, of_is_compl_left_apply, add_zero, linear_map.zero_apply]
 end
 
-@[simp] lemma of_is_compl_add (h : is_compl P Q) 
-  {φ₁ φ₂ : P →ₗ[R] M₁} {ψ₁ ψ₂ : Q →ₗ[R] M₁} : 
+@[simp] lemma of_is_compl_add (h : is_compl p q) 
+  {φ₁ φ₂ : p →ₗ[R] M₁} {ψ₁ ψ₂ : q →ₗ[R] M₁} : 
   h.of_is_compl (φ₁ + φ₂) (ψ₁ + ψ₂) = h.of_is_compl φ₁ ψ₁ + h.of_is_compl φ₂ ψ₂ :=
 begin
-  ext, obtain ⟨p, q, rfl, _⟩ := exists_unique_add_of_is_compl h x,
+  ext, obtain ⟨_, _, rfl, _⟩ := exists_unique_add_of_is_compl h x,
   simp only [of_is_compl_left_apply, of_is_compl_right_apply, 
     linear_map.add_apply, linear_map.map_add, subtype.val_eq_coe],
 end
 
-@[simp] lemma of_is_compl_smul (h : is_compl P Q) 
-  {φ : P →ₗ[R] M₁} {ψ : Q →ₗ[R] M₁} (c : R) : 
+instance : has_scalar R (M →ₗ[R] M₁) := linear_map.has_scalar
+
+@[simp] lemma of_is_compl_smul (h : is_compl p q) 
+  {φ : p →ₗ[R] M₁} {ψ : q →ₗ[R] M₁} (c : R) : 
   h.of_is_compl (c • φ) (c • ψ) = c • h.of_is_compl φ ψ :=
 begin
-  ext, obtain ⟨p, q, rfl, _⟩ := exists_unique_add_of_is_compl h x,
+  ext, obtain ⟨_, _, rfl, _⟩ := exists_unique_add_of_is_compl h x,
   simp only [of_is_compl_left_apply, of_is_compl_right_apply, linear_map.smul_apply, 
     eq_self_iff_true, linear_map.map_add, subtype.val_eq_coe],
 end
@@ -221,6 +225,8 @@ noncomputable def dual_equiv_subspace_dual (W : subspace K V) :
 linear_equiv.of_bijective W.dual_to_subspace_dual 
   dual_to_subspace_ker_eq_bot dual_to_subspace_range_eq_top
 
+-- example (U : subspace K V) : W.quotient ≃ₗ[K] U := by suggest
+
 noncomputable def quot_dual_equiv_annihilator (W : subspace K V) : 
   W.dual.quotient ≃ₗ[K] W.dual_annihilator := sorry
 
@@ -231,3 +237,43 @@ noncomputable def quot_dual_equiv_annihilator (W : subspace K V) :
 -/
 
 end subspace
+
+-- def foo' (p q : submodule R M) (f : p ≃ₗ[R] q): p.quotient ≃ₗ[R] q.quotient := 
+-- begin
+--   sorry
+-- end
+
+-- def foo (P Q : submodule R M) (f : P.quotient ≃ₗ[R] Q) : Q.quotient ≃ₗ[R] P := 
+-- begin
+  
+  
+  
+-- end
+
+/-
+def restrict_to_dual (B : bilin_form R₃ M₃) (W : submodule R₃ M₃) :
+  W →ₗ[R₃] module.dual R₃ M₃ := (to_dual' B).comp (linear_map.inclusion W)
+
+@[simp] lemma restrict_to_dual_def {B : bilin_form R₃ M₃} {W : submodule R₃ M₃}
+  {w : M₃} (hw : w ∈ W) : B.restrict_to_dual W ⟨w, hw⟩ = B.to_dual' w := rfl
+
+lemma restrict_to_dual_ker_eq {B : bilin_form R₃ M₃} {W : submodule R₃ M₃}
+  (hB : B.nondegenerate) : (B.restrict_to_dual W).ker = ⊥ :=
+begin
+  rw eq_bot_iff,
+  rintro ⟨x, hx⟩ hker,
+  convert (⊥ : submodule R₃ W).zero_mem,
+  refine hB _ _, intro n,
+  change B.to_dual' x = 0 at hker,
+  rw [← to_dual'_def, hker], refl,
+end
+
+lemma restrict_to_dual_range {B : bilin_form R₃ M₃} {W : submodule R₃ M₃}
+  (hB : B.nondegenerate) {w w' : M₃} (hw : w ∈ W) (hw' : w' ∈ B.orthogonal W) :
+  B.restrict_to_dual W ⟨w, hw⟩ w' = 0 :=
+begin
+  simp, --exact hw' w hw, Does orthogonality commute?
+  sorry
+end
+
+-/
