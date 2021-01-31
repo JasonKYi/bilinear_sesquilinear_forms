@@ -3,7 +3,6 @@ import linear_algebra.dual
 universes u v w
 
 variables {R : Type u} {M : Type v} [comm_ring R] [add_comm_group M] [module R M]
-variable {W : submodule R M}
 
 /-- The first isomorphism theorem for surjective linear maps. -/
 noncomputable def linear_map.quot_ker_equiv_of_surjective 
@@ -14,6 +13,8 @@ f.quot_ker_equiv_range.trans
   (linear_equiv.of_top f.range (linear_map.range_eq_top.2 hf))
 
 namespace submodule
+
+variable {W : submodule R M}
 
 def dual_annihilator {R : Type u} {M : Type v} [comm_ring R] [add_comm_group M]
   [module R M] (W : submodule R M) : submodule R $ module.dual R M := 
@@ -49,7 +50,7 @@ end
 
 end submodule
 
-namespace of_compl
+namespace is_compl
 
 open submodule
 
@@ -82,150 +83,146 @@ begin
     exact P.sub_mem r.2 p.2 }
 end .
 
-noncomputable def proj_left_aux (h : is_compl P Q) (m : M) : P :=
-classical.some (exists_unique_add_of_is_compl h m)
-
-noncomputable def proj_right_aux 
-  {P Q : submodule R M} (h : is_compl P Q) (m : M) : Q :=
-classical.some (classical.some_spec (exists_unique_add_of_is_compl h m))
-
-theorem sum (h : is_compl P Q) (m : M) :
-  (proj_left_aux h m : M) + proj_right_aux h m = m :=
-(classical.some_spec (classical.some_spec (exists_unique_add_of_is_compl h m))).1
-
-theorem unique_sum (h : is_compl P Q) (m : M) :
-  ∀ (r : P) (s : Q), (r : M) + s = m → r = 
-  proj_left_aux h m ∧ s = proj_right_aux h m :=
-(classical.some_spec (classical.some_spec (exists_unique_add_of_is_compl h m))).2
-
-lemma unique_sum_left (h : is_compl P Q) (m : M) (r : P) (s : Q) 
-  (hrs : (r : M) + s = m) : r = proj_left_aux h m :=
-(unique_sum h m r s hrs).1
-
-lemma unique_sum_right (h : is_compl P Q) (m : M) (r : P) (s : Q) 
-  (hrs : (r : M) + s = m) : s = proj_right_aux h m :=
-(unique_sum h m r s hrs).2
-
-noncomputable def proj_left (h : is_compl P Q) : M →ₗ[R] P :=
-{ to_fun := proj_left_aux h,
-  map_add' := λ x y, begin
-    refine (unique_sum h (x + y) 
-      (proj_left_aux h x + proj_left_aux h y)
-      (proj_right_aux h x + proj_right_aux h y) _).1.symm,
-    conv_rhs {rw [← sum h x, ← sum h y]},
-    simp [add_add_add_comm],
-  end,
-  map_smul' := λ r m, begin
-    refine (unique_sum h (r • m) (r • proj_left_aux h m) 
-      (r • proj_right_aux h m) _).1.symm,
-    conv_rhs {rw [← sum h m]},
-    simp,
-  end }
-
-@[simp] lemma proj_left_apply (h : is_compl P Q) (m : M) :
-  proj_left h m = proj_left_aux h m := rfl
-
-@[simp] lemma proj_left_left_inverse (h : is_compl P Q) : 
-  (proj_left h).comp P.subtype = linear_map.id :=
-begin
-  ext, erw [linear_map.id_coe, id.def, coe_eq_coe, linear_map.comp_apply, 
-    subtype_apply, proj_left_apply, ← unique_sum_left h x.1 x 0 (add_zero _)],
-end
-
-noncomputable def proj_right (h : is_compl P Q) : M →ₗ[R] Q :=
-{ to_fun := proj_right_aux h,
-  map_add' := λ x y, begin
-    refine (unique_sum h (x + y) 
-      (proj_left_aux h x + proj_left_aux h y)
-      (proj_right_aux h x + proj_right_aux h y) _).2.symm,
-    conv_rhs {rw [← sum h x, ← sum h y]},
-    simp [add_add_add_comm],
-  end,
-  map_smul' := λ r m, begin
-    refine (unique_sum h (r • m) (r • proj_left_aux h m) 
-      (r • proj_right_aux h m) _).2.symm,
-    conv_rhs {rw [← sum h m]},
-    simp,
-  end }
-
-@[simp] lemma proj_right_apply (h : is_compl P Q) (m : M) :
-  proj_right h m = proj_right_aux h m := rfl
-
-@[simp] lemma proj_right_left_inverse (h : is_compl P Q) : 
-  (proj_right h).comp Q.subtype = linear_map.id :=
-begin
-  ext, erw [linear_map.id_coe, id.def, coe_eq_coe, linear_map.comp_apply, 
-    subtype_apply, proj_right_apply, ← unique_sum_right h x.1 0 x (zero_add _)],
-end
-
-lemma proj_right_symm_eq_proj_left (h : is_compl P Q) : 
-  (proj_right h.symm) = proj_left h := 
-begin
-  ext, have := sum h.symm x,
-  rw add_comm at this,
-  simp [unique_sum_left h x (proj_right h.symm x) (proj_left h.symm x) this],
-end
-
-lemma proj_left_symm_eq_proj_right (h : is_compl P Q) : 
-  (proj_left h.symm) = proj_right h := 
-begin
-  ext, have := sum h.symm x,
-  rw add_comm at this,
-  simp [unique_sum_right h x (proj_right h.symm x) (proj_left h.symm x) this],
-end
-
 noncomputable def of_is_compl 
   (h : is_compl P Q) (φ : P →ₗ[R] M₁) (ψ : Q →ₗ[R] M₁) : M →ₗ[R] M₁ := 
- φ.comp (proj_left h) + ψ.comp (proj_right h)
+ φ.comp (linear_proj_of_is_compl P Q h) + ψ.comp (linear_proj_of_is_compl Q P h.symm)
 
 @[simp] lemma of_is_compl_left_apply 
-  {φ : P →ₗ[R] M₁} {ψ : Q →ₗ[R] M₁} (h : is_compl P Q) (p : P) : 
-  of_is_compl h φ ψ p.1 = φ p :=
+  (h : is_compl P Q) {φ : P →ₗ[R] M₁} {ψ : Q →ₗ[R] M₁} (p : P) : 
+  of_is_compl h φ ψ (p : M) = φ p :=
+by erw [of_is_compl, linear_map.add_apply, linear_map.comp_apply, 
+        linear_proj_of_is_compl_apply_left, linear_map.comp_apply, 
+        linear_proj_of_is_compl_apply_right, linear_map.map_zero, add_zero]
+
+@[simp] lemma of_is_compl_right_apply {P Q : submodule R M} 
+  (h : is_compl P Q) {φ : P →ₗ[R] M₁} {ψ : Q →ₗ[R] M₁} (q : Q) : 
+  of_is_compl h φ ψ (q : M) = ψ q :=
+by erw [of_is_compl, linear_map.add_apply, linear_map.comp_apply, 
+        linear_proj_of_is_compl_apply_right, linear_map.comp_apply,
+        linear_proj_of_is_compl_apply_left, linear_map.map_zero, zero_add]
+
+@[simp] lemma of_is_compl_zero (h : is_compl P Q) : 
+  (of_is_compl h 0 0 : M →ₗ[R] M₁) = 0 :=
 begin
-  obtain ⟨h₁, h₂⟩ := unique_sum h p.1 p 0 (add_zero _),
-  simp only [of_is_compl, proj_left_apply, 
-    proj_right_apply, subtype.val_eq_coe, 
-    linear_map.comp_apply, linear_map.add_apply],
-  erw [← h₁, ← h₂, linear_map.map_zero, add_zero]
-end  
+  ext, obtain ⟨p, q, rfl, _⟩ := exists_unique_add_of_is_compl h x,
+  erw [linear_map.map_add, of_is_compl_left_apply, add_zero, linear_map.zero_apply]
+end
 
-@[simp] lemma of_right_apply {P Q : submodule R M} 
-  {φ : P →ₗ[R] M₁} {ψ : Q →ₗ[R] M₁} (h : is_compl P Q) (q : Q) : 
-  of_is_compl h φ ψ q.1 = ψ q :=
+@[simp] lemma of_is_compl_add (h : is_compl P Q) 
+  {φ₁ φ₂ : P →ₗ[R] M₁} {ψ₁ ψ₂ : Q →ₗ[R] M₁} : 
+  h.of_is_compl (φ₁ + φ₂) (ψ₁ + ψ₂) = h.of_is_compl φ₁ ψ₁ + h.of_is_compl φ₂ ψ₂ :=
 begin
-  obtain ⟨h₁, h₂⟩ := unique_sum h q.1 0 q (zero_add _),
-  simp only [of_is_compl, proj_left_apply, 
-    proj_right_apply, subtype.val_eq_coe, 
-    linear_map.comp_apply, linear_map.add_apply],
-  erw [← h₁, ← h₂, linear_map.map_zero, zero_add]
-end  
+  ext, obtain ⟨p, q, rfl, _⟩ := exists_unique_add_of_is_compl h x,
+  simp only [of_is_compl_left_apply, of_is_compl_right_apply, 
+    linear_map.add_apply, linear_map.map_add, subtype.val_eq_coe],
+end
 
-end of_compl
+@[simp] lemma of_is_compl_smul (h : is_compl P Q) 
+  {φ : P →ₗ[R] M₁} {ψ : Q →ₗ[R] M₁} (c : R) : 
+  h.of_is_compl (c • φ) (c • ψ) = c • h.of_is_compl φ ψ :=
+begin
+  ext, obtain ⟨p, q, rfl, _⟩ := exists_unique_add_of_is_compl h x,
+  simp only [of_is_compl_left_apply, of_is_compl_right_apply, linear_map.smul_apply, 
+    eq_self_iff_true, linear_map.map_add, subtype.val_eq_coe],
+end
 
-namespace submodule
+end is_compl
 
-open of_compl
+namespace subspace
+
+open is_compl submodule
 
 variables {K : Type u} {V : Type v} [field K] [add_comm_group V] [vector_space K V] 
 
-noncomputable def dual_lift {K : Type u} {V : Type v} [field K] 
-  [add_comm_group V] [vector_space K V] 
-  {W : subspace K V} (φ : module.dual K W) : module.dual K V := 
+-- We work in vector spaces because `exists_is_compl` only hold for vector spaces
+noncomputable def dual_lift 
+  (W : subspace K V) (φ : module.dual K W) : module.dual K V := 
 let h := classical.indefinite_description _ W.exists_is_compl in of_is_compl h.2 φ 0
 
-lemma dual_restrict_surjective {W : subspace K V} : 
+variable {W : subspace K V}
+
+@[simp] lemma dual_lift_of_subtype {φ : module.dual K W} (w : W) : 
+  W.dual_lift φ (w : V) = φ w := 
+by erw of_is_compl_left_apply _ w
+
+lemma dual_lift_of_mem {φ : module.dual K W} {w : V} (hw : w ∈ W) : 
+  W.dual_lift φ w = φ ⟨w, hw⟩ := 
+dual_lift_of_subtype ⟨w, hw⟩
+
+@[simp] lemma dual_lift_zero : W.dual_lift 0 = 0 := by simp [dual_lift]
+
+-- `change` is significantly slower than `show`
+@[simp] lemma dual_lift_add (φ ψ : module.dual K W) : 
+  W.dual_lift (φ + ψ) = W.dual_lift φ + W.dual_lift ψ := 
+begin
+  show of_is_compl _ _ 0 = of_is_compl _ φ 0 + of_is_compl _ ψ 0,
+  rw [← zero_add (0 : _ →ₗ[K] _), of_is_compl_add], simp
+end
+
+@[simp] lemma dual_lift_smul (c : K) (φ : module.dual K W) : 
+  W.dual_lift (c • φ) = c • W.dual_lift φ := 
+begin
+  show of_is_compl _ _ 0 = c • of_is_compl _ _ 0,
+  rw [← smul_zero c, of_is_compl_smul], simp
+end 
+
+lemma dual_restrict_surjective : 
   function.surjective W.dual_restrict :=
 begin
-  intros φ,
-  refine ⟨dual_lift φ, _⟩,
-  ext, rw [dual_restrict_apply, dual_lift, of_is_compl_left_apply],
+  intros φ, refine ⟨W.dual_lift φ, _⟩, ext, 
+  erw [dual_restrict_apply, dual_lift, of_is_compl_left_apply],
+end
+
+lemma dual_lift_injective : function.injective W.dual_lift :=
+begin
+  rintro _ _ h, 
+  ext, rw [← dual_lift_of_subtype, h, dual_lift_of_subtype], 
 end
 
 -- V* / U∘ ≅ U*
-noncomputable def quot_annihilator_equiv (W : submodule K V) : 
+noncomputable def quot_annihilator_equiv (W : subspace K V) : 
   W.dual_annihilator.quotient ≃ₗ[K] module.dual K W := 
 (quot_equiv_of_eq _ _ W.dual_restrict_ker_eq_dual_anihilator).symm.trans $
   W.dual_restrict.quot_ker_equiv_of_surjective dual_restrict_surjective
+
+def dual (W : subspace K V) : subspace K (module.dual K V) := 
+{ carrier := { φ | ∃ ψ : module.dual K W, φ = W.dual_lift ψ },
+  zero_mem' := ⟨0, dual_lift_zero.symm⟩,
+  add_mem' := 
+    by { rintro _ _ ⟨ψ₁, rfl⟩ ⟨ψ₂, rfl⟩, 
+         exact ⟨ψ₁ + ψ₂, (dual_lift_add ψ₁ ψ₂).symm⟩ },
+  smul_mem' := 
+    by { rintro c _ ⟨ψ, rfl⟩,
+         exact ⟨c • ψ, (dual_lift_smul c ψ).symm⟩ } }
+
+@[simp] lemma mem_dual_iff (φ : module.dual K V) : φ ∈ W.dual ↔ 
+  ∃ ψ : module.dual K W, φ = W.dual_lift ψ := iff.rfl
+
+noncomputable def dual_to_subspace_dual (W : subspace K V) : 
+  module.dual K W →ₗ[K] W.dual := 
+{ to_fun := λ φ, ⟨W.dual_lift φ, ⟨φ, rfl⟩⟩,
+  map_add' := by { intros _ _, simp_rw [dual_lift_add], refl },
+  map_smul' := by { intros _ _, simp_rw [dual_lift_smul], refl } }
+
+@[simp] lemma dual_to_subspace_dual_apply (φ : module.dual K W) : 
+  W.dual_to_subspace_dual φ = ⟨W.dual_lift φ, ⟨φ, rfl⟩⟩ := rfl
+
+lemma dual_to_subspace_ker_eq_bot : 
+  W.dual_to_subspace_dual.ker = ⊥ :=
+linear_map.ker_eq_bot.2 $ λ φ ψ h, dual_lift_injective (subtype.mk_eq_mk.1 h)
+
+lemma dual_to_subspace_range_eq_top : 
+  W.dual_to_subspace_dual.range = ⊤ := 
+linear_map.range_eq_top.2 $ λ ⟨φ, hφ⟩, let ⟨ψ, hψ⟩ := hφ in
+  ⟨ψ, by rw [dual_to_subspace_dual_apply, subtype.mk_eq_mk, hψ]⟩
+
+noncomputable def dual_equiv_subspace_dual (W : subspace K V) : 
+  module.dual K W ≃ₗ[K] W.dual := 
+linear_equiv.of_bijective W.dual_to_subspace_dual 
+  dual_to_subspace_ker_eq_bot dual_to_subspace_range_eq_top
+
+noncomputable def quot_dual_equiv_annihilator (W : subspace K V) : 
+  W.dual.quotient ≃ₗ[K] W.dual_annihilator := sorry
 
 /- Next step
   V* / U∘ ≅ U*
@@ -233,4 +230,4 @@ noncomputable def quot_annihilator_equiv (W : submodule K V) :
   → V / U ≅ U∘ ≅ U⊥
 -/
 
-end submodule
+end subspace
