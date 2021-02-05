@@ -220,15 +220,10 @@ lemma dual_to_subspace_range_eq_top :
 linear_map.range_eq_top.2 $ λ ⟨φ, hφ⟩, let ⟨ψ, hψ⟩ := hφ in
   ⟨ψ, by rw [dual_to_subspace_dual_apply, subtype.mk_eq_mk, hψ]⟩
 
-noncomputable def dual_equiv_subspace_dual (W : subspace K V) : 
+noncomputable def dual_equiv_dual (W : subspace K V) : 
   module.dual K W ≃ₗ[K] W.dual := 
 linear_equiv.of_bijective W.dual_to_subspace_dual 
   dual_to_subspace_ker_eq_bot dual_to_subspace_range_eq_top
-
--- example (U : subspace K V) : W.quotient ≃ₗ[K] U := by suggest
-
-noncomputable def quot_dual_equiv_annihilator (W : subspace K V) : 
-  W.dual.quotient ≃ₗ[K] W.dual_annihilator := sorry
 
 /- Next step
   V* / U∘ ≅ U*
@@ -236,19 +231,64 @@ noncomputable def quot_dual_equiv_annihilator (W : subspace K V) :
   → V / U ≅ U∘ ≅ U⊥
 -/
 
+section
+
+open_locale classical
+
+open finite_dimensional
+
+variables {V₁ : Type*} [add_comm_group V₁] [vector_space K V₁]
+variables [finite_dimensional K V] [finite_dimensional K V₁]
+
+noncomputable def linear_equiv.quot_equiv_of_equiv
+  {p : submodule K V} {q : submodule K V₁}
+  (f₁ : p ≃ₗ[K] q) (f₂ : V ≃ₗ[K] V₁) : p.quotient ≃ₗ[K] q.quotient := 
+linear_equiv.of_findim_eq _ _ 
+begin
+  rw [← @add_right_cancel_iff _ _ (findim K p), findim_quotient_add_findim, 
+    linear_equiv.findim_eq f₁, findim_quotient_add_findim, linear_equiv.findim_eq f₂],
+end
+
+noncomputable def linear_equiv.quot_equiv_of_quot_equiv
+  {p q : submodule K V} (f : p.quotient ≃ₗ[K] q) : q.quotient ≃ₗ[K] p := 
+linear_equiv.of_findim_eq _ _ 
+begin
+  rw [← @add_right_cancel_iff _ _ (findim K q), findim_quotient_add_findim, 
+    ← linear_equiv.findim_eq f, add_comm, findim_quotient_add_findim]  
+end
+
+-- dependency
+instance [H : finite_dimensional K V] : finite_dimensional K (module.dual K V) := 
+begin
+  refine @linear_equiv.finite_dimensional _ _ _ _ _ _ _ _ _ H,
+  have hB := classical.some_spec (exists_is_basis_finite K V),
+  haveI := classical.choice hB.2,
+  exact is_basis.to_dual_equiv _ hB.1
+end
+
+noncomputable def quot_dual_equiv_annihilator (W : subspace K V) : 
+  W.dual.quotient ≃ₗ[K] W.dual_annihilator := 
+linear_equiv.quot_equiv_of_quot_equiv $ 
+  linear_equiv.trans W.quot_annihilator_equiv W.dual_equiv_dual
+
+noncomputable def quot_equiv_annihilator (W : subspace K V) : 
+  W.quotient ≃ₗ[K] W.dual_annihilator := 
+begin
+  refine linear_equiv.trans _ W.quot_dual_equiv_annihilator,
+  refine linear_equiv.quot_equiv_of_equiv _ _,
+  { refine linear_equiv.trans _ W.dual_equiv_dual,
+    have hB := classical.some_spec (exists_is_basis_finite K W),
+    haveI := classical.choice hB.2,
+    exact is_basis.to_dual_equiv _ hB.1 },
+  { have hB := classical.some_spec (exists_is_basis_finite K V),
+    haveI := classical.choice hB.2,
+    exact is_basis.to_dual_equiv _ hB.1 },
+end
+
+end
+
 end subspace
 
--- def foo' (p q : submodule R M) (f : p ≃ₗ[R] q): p.quotient ≃ₗ[R] q.quotient := 
--- begin
---   sorry
--- end
-
--- def foo (P Q : submodule R M) (f : P.quotient ≃ₗ[R] Q) : Q.quotient ≃ₗ[R] P := 
--- begin
-  
-  
-  
--- end
 
 /-
 def restrict_to_dual (B : bilin_form R₃ M₃) (W : submodule R₃ M₃) :
