@@ -1,5 +1,6 @@
 import linear_algebra.bilinear_form
 import algebra.invertible
+import annihilator
 -- import linear_algebra.direct_sum_module
 
 open_locale classical
@@ -300,14 +301,6 @@ B.to_dual'.to_add_monoid_hom.injective_iff.2 (λ a ha, hB _ (linear_map.congr_fu
 section finite_dimensional
 
 open finite_dimensional
-
-instance [H : finite_dimensional K V] : finite_dimensional K (module.dual K V) := 
-begin
-  refine @linear_equiv.finite_dimensional _ _ _ _ _ _ _ _ _ H,
-  have hB := classical.some_spec (exists_is_basis_finite K V),
-  haveI := classical.choice hB.2,
-  exact is_basis.to_dual_equiv _ hB.1
-end
 
 variable [finite_dimensional K V] 
 

@@ -1,3 +1,4 @@
+import linear_algebra.projection
 import linear_algebra.dual
 
 universes u v w
@@ -50,91 +51,9 @@ end
 
 end submodule
 
-namespace is_compl
-
-open submodule
-
-open_locale classical
-
-variables {M₁ : Type w} [add_comm_group M₁] [module R M₁]
-variables {p q : submodule R M}
-
-lemma exists_unique_add_of_is_compl (hc : is_compl p q) (x : M) : 
-  ∃ (u : p) (v : q), (u.1 + v.1 = x ∧ ∀ (r : p) (s : q), 
-    r.1 + s.1 = x → r = u ∧ s = v) :=
-begin
-  obtain ⟨u, v, h⟩ := 
-    submodule.mem_sup'.1 ((eq_top_iff.2 hc.2).symm ▸ mem_top : x ∈ p ⊔ q),
-  refine ⟨u, v, h, λ r s hrs, _⟩, 
-  erw [← h, ← @add_right_cancel_iff _ _ (-s : M) (r + s) (u + v), 
-       add_assoc, add_neg_self, add_zero, 
-       ← @add_left_cancel_iff _ _ (-u : M) r (u + v + -s),
-       ← add_assoc, ← add_assoc, add_left_neg, zero_add, add_comm, 
-       ← sub_eq_add_neg, ← sub_eq_add_neg] at hrs,
-  split; rw [← sub_eq_zero],
-  { suffices : r.1 - u.1 ∈ q,
-    { rw [← coe_eq_coe, coe_sub],
-      exact (submodule.mem_bot _).1 (hc.1 ⟨p.sub_mem r.2 u.2, this⟩) },
-    erw hrs, exact q.sub_mem v.2 s.2 },
-  { suffices : s.1 - v.1 ∈ p,
-    { rw [← coe_eq_coe, coe_sub],
-      exact (submodule.mem_bot _).1 (hc.1 ⟨this, q.sub_mem s.2 v.2⟩) },
-    erw [← neg_mem_iff, neg_sub, ← hrs],
-    exact p.sub_mem r.2 u.2 }
-end .
-
-/-- Given linear maps `φ` and `ψ` from complement submodules, `of_is_compl` is 
-the induced linear map over the entire module. -/
-noncomputable def of_is_compl 
-  (h : is_compl p q) (φ : p →ₗ[R] M₁) (ψ : q →ₗ[R] M₁) : M →ₗ[R] M₁ := 
- φ.comp (linear_proj_of_is_compl p q h) + ψ.comp (linear_proj_of_is_compl q p h.symm)
-
-@[simp] lemma of_is_compl_left_apply 
-  (h : is_compl p q) {φ : p →ₗ[R] M₁} {ψ : q →ₗ[R] M₁} (u : p) : 
-  of_is_compl h φ ψ (u : M) = φ u :=
-by erw [of_is_compl, linear_map.add_apply, linear_map.comp_apply, 
-        linear_proj_of_is_compl_apply_left, linear_map.comp_apply, 
-        linear_proj_of_is_compl_apply_right, linear_map.map_zero, add_zero]
-
-@[simp] lemma of_is_compl_right_apply  
-  (h : is_compl p q) {φ : p →ₗ[R] M₁} {ψ : q →ₗ[R] M₁} (v : q) : 
-  of_is_compl h φ ψ (v : M) = ψ v :=
-by erw [of_is_compl, linear_map.add_apply, linear_map.comp_apply, 
-        linear_proj_of_is_compl_apply_right, linear_map.comp_apply,
-        linear_proj_of_is_compl_apply_left, linear_map.map_zero, zero_add]
-
-@[simp] lemma of_is_compl_zero (h : is_compl p q) : 
-  (of_is_compl h 0 0 : M →ₗ[R] M₁) = 0 :=
-begin
-  ext, obtain ⟨_, _, rfl, _⟩ := exists_unique_add_of_is_compl h x,
-  erw [linear_map.map_add, of_is_compl_left_apply, add_zero, linear_map.zero_apply]
-end
-
-@[simp] lemma of_is_compl_add (h : is_compl p q) 
-  {φ₁ φ₂ : p →ₗ[R] M₁} {ψ₁ ψ₂ : q →ₗ[R] M₁} : 
-  h.of_is_compl (φ₁ + φ₂) (ψ₁ + ψ₂) = h.of_is_compl φ₁ ψ₁ + h.of_is_compl φ₂ ψ₂ :=
-begin
-  ext, obtain ⟨_, _, rfl, _⟩ := exists_unique_add_of_is_compl h x,
-  simp only [of_is_compl_left_apply, of_is_compl_right_apply, 
-    linear_map.add_apply, linear_map.map_add, subtype.val_eq_coe],
-end
-
-instance : has_scalar R (M →ₗ[R] M₁) := linear_map.has_scalar
-
-@[simp] lemma of_is_compl_smul (h : is_compl p q) 
-  {φ : p →ₗ[R] M₁} {ψ : q →ₗ[R] M₁} (c : R) : 
-  h.of_is_compl (c • φ) (c • ψ) = c • h.of_is_compl φ ψ :=
-begin
-  ext, obtain ⟨_, _, rfl, _⟩ := exists_unique_add_of_is_compl h x,
-  simp only [of_is_compl_left_apply, of_is_compl_right_apply, linear_map.smul_apply, 
-    eq_self_iff_true, linear_map.map_add, subtype.val_eq_coe],
-end
-
-end is_compl
-
 namespace subspace
 
-open is_compl submodule
+open submodule linear_map
 
 variables {K : Type u} {V : Type v} [field K] [add_comm_group V] [vector_space K V] 
 
