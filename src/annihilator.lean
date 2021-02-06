@@ -17,6 +17,8 @@ namespace submodule
 
 variable {W : submodule R M}
 
+/-- The `dual_annihilator` of a submodule `W` is the set of linear maps `φ` such 
+  that `φ w = 0` for all `w ∈ W`. -/
 def dual_annihilator {R : Type u} {M : Type v} [comm_ring R] [add_comm_group M]
   [module R M] (W : submodule R M) : submodule R $ module.dual R M := 
 { carrier := { φ | ∀ w ∈ W, φ w = 0 },
@@ -29,6 +31,9 @@ def dual_annihilator {R : Type u} {M : Type v} [comm_ring R] [add_comm_group M]
 @[simp] lemma mem_dual_annihilator (φ : module.dual R M) : 
   φ ∈ W.dual_annihilator ↔ ∀ w ∈ W, φ w = 0 := iff.rfl
 
+/-- The `dual_restrict` of a submodule `W` of `M` is the linear map from the 
+  dual of `M` to the dual of `W` such that the domain of each linear map is 
+  restricted to `W`. -/
 def dual_restrict (W : submodule R M) : 
   module.dual R M →ₗ[R] module.dual R W := 
 { to_fun := λ φ, φ.dom_restrict W,
@@ -58,6 +63,8 @@ open submodule linear_map
 variables {K : Type u} {V : Type v} [field K] [add_comm_group V] [vector_space K V] 
 
 -- We work in vector spaces because `exists_is_compl` only hold for vector spaces
+/-- Given a subspace `W` of `V` and an element of its dual `φ`, `dual_lift W φ` is 
+  the natural extenstion of `φ` to an element of the dual of `V`. -/
 noncomputable def dual_lift 
   (W : subspace K V) (φ : module.dual K W) : module.dual K V := 
 let h := classical.indefinite_description _ W.exists_is_compl in of_is_compl h.2 φ 0
@@ -74,10 +81,10 @@ dual_lift_of_subtype ⟨w, hw⟩
 
 @[simp] lemma dual_lift_zero : W.dual_lift 0 = 0 := by simp [dual_lift]
 
--- `change` is significantly slower than `show`
 @[simp] lemma dual_lift_add (φ ψ : module.dual K W) : 
   W.dual_lift (φ + ψ) = W.dual_lift φ + W.dual_lift ψ := 
 begin
+  -- `change` is significantly slower than `show`
   show of_is_compl _ _ 0 = of_is_compl _ φ 0 + of_is_compl _ ψ 0,
   rw [← zero_add (0 : _ →ₗ[K] _), of_is_compl_add], simp
 end
@@ -103,11 +110,16 @@ begin
 end
 
 -- V* / U∘ ≅ U*
+
+/-- The quotient by the `dual_annihilator` of a subspace is isomorphic to the 
+  dual of that subspace. -/
 noncomputable def quot_annihilator_equiv (W : subspace K V) : 
   W.dual_annihilator.quotient ≃ₗ[K] module.dual K W := 
 (quot_equiv_of_eq _ _ W.dual_restrict_ker_eq_dual_anihilator).symm.trans $
   W.dual_restrict.quot_ker_equiv_of_surjective dual_restrict_surjective
 
+/-- The representation of the dual of a subspace `W` of `V` as a subspace of 
+  the dual of `V`. -/
 def dual (W : subspace K V) : subspace K (module.dual K V) := 
 { carrier := { φ | ∃ ψ : module.dual K W, φ = W.dual_lift ψ },
   zero_mem' := ⟨0, dual_lift_zero.symm⟩,
@@ -121,6 +133,7 @@ def dual (W : subspace K V) : subspace K (module.dual K V) :=
 @[simp] lemma mem_dual_iff (φ : module.dual K V) : φ ∈ W.dual ↔ 
   ∃ ψ : module.dual K W, φ = W.dual_lift ψ := iff.rfl
 
+/-- The natural linear map from the dual of a subspace `W` to `W.dual`. -/
 noncomputable def dual_to_subspace_dual (W : subspace K V) : 
   module.dual K W →ₗ[K] W.dual := 
 { to_fun := λ φ, ⟨W.dual_lift φ, ⟨φ, rfl⟩⟩,
@@ -139,6 +152,7 @@ lemma dual_to_subspace_range_eq_top :
 linear_map.range_eq_top.2 $ λ ⟨φ, hφ⟩, let ⟨ψ, hψ⟩ := hφ in
   ⟨ψ, by rw [dual_to_subspace_dual_apply, subtype.mk_eq_mk, hψ]⟩
 
+/-- The natural isomorphism forom the dual of a subspace `W` to `W.dual`. -/
 noncomputable def dual_equiv_dual (W : subspace K V) : 
   module.dual K W ≃ₗ[K] W.dual := 
 linear_equiv.of_bijective W.dual_to_subspace_dual 
@@ -159,8 +173,10 @@ open finite_dimensional
 variables {V₁ : Type*} [add_comm_group V₁] [vector_space K V₁]
 variables [finite_dimensional K V] [finite_dimensional K V₁]
 
+/-- Given isomorphic subspaces `p q` of vector spaces `V` and `V₁` respectively, 
+  `p.quotient` is isomorphic to `q.quotient`. -/
 noncomputable def linear_equiv.quot_equiv_of_equiv
-  {p : submodule K V} {q : submodule K V₁}
+  {p : subspace K V} {q : subspace K V₁}
   (f₁ : p ≃ₗ[K] q) (f₂ : V ≃ₗ[K] V₁) : p.quotient ≃ₗ[K] q.quotient := 
 linear_equiv.of_findim_eq _ _ 
 begin
@@ -168,8 +184,9 @@ begin
     linear_equiv.findim_eq f₁, findim_quotient_add_findim, linear_equiv.findim_eq f₂],
 end
 
+/-- Given the subspaces `p q`, if `p.quotient ≃ₗ[K] q`, then `q.quotient ≃ₗ[K] p` -/
 noncomputable def linear_equiv.quot_equiv_of_quot_equiv
-  {p q : submodule K V} (f : p.quotient ≃ₗ[K] q) : q.quotient ≃ₗ[K] p := 
+  {p q : subspace K V} (f : p.quotient ≃ₗ[K] q) : q.quotient ≃ₗ[K] p := 
 linear_equiv.of_findim_eq _ _ 
 begin
   rw [← @add_right_cancel_iff _ _ (findim K q), findim_quotient_add_findim, 
@@ -185,11 +202,13 @@ begin
   exact is_basis.to_dual_equiv _ hB.1
 end
 
+/-- The quotient by the dual is isomorphic to its dual annihilator.  -/
 noncomputable def quot_dual_equiv_annihilator (W : subspace K V) : 
   W.dual.quotient ≃ₗ[K] W.dual_annihilator := 
 linear_equiv.quot_equiv_of_quot_equiv $ 
   linear_equiv.trans W.quot_annihilator_equiv W.dual_equiv_dual
 
+/-- The quotient by a subspace is isomorphic to its dual annihilator. -/
 noncomputable def quot_equiv_annihilator (W : subspace K V) : 
   W.quotient ≃ₗ[K] W.dual_annihilator := 
 begin
@@ -207,32 +226,3 @@ end
 end
 
 end subspace
-
-
-/-
-def restrict_to_dual (B : bilin_form R₃ M₃) (W : submodule R₃ M₃) :
-  W →ₗ[R₃] module.dual R₃ M₃ := (to_dual' B).comp (linear_map.inclusion W)
-
-@[simp] lemma restrict_to_dual_def {B : bilin_form R₃ M₃} {W : submodule R₃ M₃}
-  {w : M₃} (hw : w ∈ W) : B.restrict_to_dual W ⟨w, hw⟩ = B.to_dual' w := rfl
-
-lemma restrict_to_dual_ker_eq {B : bilin_form R₃ M₃} {W : submodule R₃ M₃}
-  (hB : B.nondegenerate) : (B.restrict_to_dual W).ker = ⊥ :=
-begin
-  rw eq_bot_iff,
-  rintro ⟨x, hx⟩ hker,
-  convert (⊥ : submodule R₃ W).zero_mem,
-  refine hB _ _, intro n,
-  change B.to_dual' x = 0 at hker,
-  rw [← to_dual'_def, hker], refl,
-end
-
-lemma restrict_to_dual_range {B : bilin_form R₃ M₃} {W : submodule R₃ M₃}
-  (hB : B.nondegenerate) {w w' : M₃} (hw : w ∈ W) (hw' : w' ∈ B.orthogonal W) :
-  B.restrict_to_dual W ⟨w, hw⟩ w' = 0 :=
-begin
-  simp, --exact hw' w hw, Does orthogonality commute?
-  sorry
-end
-
--/
